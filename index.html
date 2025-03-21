@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anime Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="css/artplayer.css">
+</head>
+<body>
+
+<div class="artplayer-app"></div>
+
+<script src="js/artplayer.js"></script>
+<script src="js/hls.js"></script>
+<script src="js/artplayer-plugin-chromecast.js"></script>
+<script src="js/artplayer-plugin-dash-control.js"></script>
+<script src="js/artplayer-plugin-hls-control.js"></script>
+<script src="js/artplayer-plugin-chapter.js"></script>
+
+<script>
+    // Replace PHP server-side values with JS variables
+    const proxyUrl = 'https://gogoanime-and-hianime-proxy-nn.vercel.app/m3u8-proxy?url=';  // Replace with your proxy URL
+    const apiUrl = 'https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources';  // Replace with your API URL
+    const id = new URLSearchParams(window.location.search).get('id') || '123';
+    const server = new URLSearchParams(window.location.search).get('server') || 'hd-1';
+    const isIframe = new URLSearchParams(window.location.search).get('embed') === 'true';
+
+    const fullApiUrl = `${apiUrl}?animeEpisodeId=${id}&server=${server}&category=dub`;
+
+    async function fetchData() {
+        try {
+            const response = await fetch(fullApiUrl);
+            if (!response.ok) throw new Error('Failed to fetch');
+            
+            const data = await response.json();
+            if (!data.success) {
+                console.error('Invalid API response');
+                return;
+            }
+
+            // Apply the proxy to the m3u8 URL
+            const m3u8_url = `${proxyUrl}${encodeURIComponent(data.data.sources[0].url)}`;
+            
+            const intro_start = data.data.intro.start;
+            const intro_end = data.data.intro.end;
+            const outro_start = data.data.outro.start;
+            const outro_end = data.data.outro.end;
+
+            const subtitles = data.data.tracks
+                .filter(track => track.kind === 'captions')
+                .map(track => ({
+                    label: track.label,
+                    file: track.file,
+                    default: /english|eng/i.test(track.label)
+                }));
+
+            initPlayer(m3u8_url, intro_start, intro_end, outro_start, outro_end, subtitles);
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    }
+
+    function initPlayer(m3u8_url, intro_start, intro_end, outro_start, outro_end, subtitles) {
+        const settings = {
+            autoSkipIntro: true,
+            autoSkipOutro: true
+        };
+
+        function playM3u8(video, url, art) {
+            if (Hls.isSupported()) {
+                if (art.hls) art.hls.destroy();
+                const hls = new Hls();
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                art.hls = hls;
+                art.on('destroy', () => hls.destroy());
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+            } else {
+                art.notice.show = 'Unsupported playback format: m3u8';
+            }
+        }
+
+        const art = new Artplayer({
+            container: '.artplayer-app',
+            theme: '#ff9a68',
+            url: m3u8_url,
+            type: 'm3u8',
+            customType: { m3u8: playM3u8 },
+            volume: 0.5,
+            autoplay: true,
+            pip: true,
+            playbackRate: true,
+            aspectRatio: true,
+            fullscreen: true,
+            miniProgressBar: false,
+            backdrop: true,
+            playsInline: true,
+            airplay: true,
+            lang: navigator.language.toLowerCase(),
+            moreVideoAttr: { crossOrigin: 'anonymous' },
+            settings: [
+                {
+                    html: 'Subtitle',
+                    tooltip: 'Choose Subtitle',
+                    icon: '<img width="22" height="22" src="icons/subtitle.svg">',
+                    selector: subtitles.map(sub => ({
+                        html: sub.label,
+                        url: sub.file,
+                        default: sub.default,
+                        click: () => {
+                            art.subtitle.url = sub.file;
+                        }
+                    })),
+                    onSelect: (item) => {
+                        art.subtitle.url = item.url;
+                        return item.html;
+                    }
+                },
+                {
+                    html: 'Auto Skip',
+                    tooltip: localStorage.getItem('autoSkipEnabled') === 'true' ? 'Enabled' : 'Disabled',
+                    icon: '<img width="22" height="22" src="icons/skip.svg">',
+                    switch: true,
+                    default: true,
+                    onSwitch: (item) => {
+                        const isEnabled = !settings.autoSkipIntro;
+                        settings.autoSkipIntro = isEnabled;
+                        settings.autoSkipOutro = isEnabled;
+                        localStorage.setItem('autoSkipEnabled', isEnabled);
+                        return isEnabled;
+                    }
+                }
+            ],
+            plugins: [
+                artplayerPluginHlsControl({
+                    quality: {
+                        control: false,
+                        setting: true,
+                        title: 'Quality',
+                        auto: 'Auto',
+                    },
+                }),
+                artplayerPluginChapter({
+                    chapters: [
+                        { start: intro_start, end: intro_end, title: 'Intro', color: '#fdd253' },
+                        { start: outro_start, end: outro_end, title: 'Outro', color: 'red' }
+                    ],
+                }),
+            ],
+        });
+
+        // Add rewind button
+        art.controls.add({
+            name: 'rewind',
+            index: 10,
+            position: 'right',
+            html: `<svg viewBox="-5 -10 75 75" xmlns="http://www.w3.org/2000/svg" width="35" height="35" fill="white">
+                <path d="M11.9199 45H7.20508V26.5391L2.60645 28.3154V24.3975L11.4219 20.7949H11.9199V45ZM30.1013 35.0059C30.1013 38.3483 29.4926 40.9049 28.2751 42.6758C27.0687 44.4466 25.3422 45.332 23.0954 45.332C20.8708 45.332 19.1498 44.4743 17.9323 42.7588C16.726 41.0322 16.1006 38.5641 16.0564 35.3545V30.7891C16.0564 27.4577 16.6596 24.9121 17.8659 23.1523C19.0723 21.3815 20.8044 20.4961 23.0622 20.4961C25.32 20.4961 27.0521 21.3704 28.2585 23.1191C29.4649 24.8678 30.0792 27.3636 30.1013 30.6064V35.0059Z"/>
+            </svg>`,
+            tooltip: 'Rewind 10 seconds',
+            style: { color: 'red' },
+            click: () => {
+                art.currentTime -= 10;
+            }
+        });
+
+        art.on('ready', () => {
+            const autoSkipEnabled = localStorage.getItem('autoSkipEnabled');
+            settings.autoSkipIntro = autoSkipEnabled === 'true';
+            settings.autoSkipOutro = autoSkipEnabled === 'true';
+        });
+
+        art.on('video:timeupdate', () => {
+            const currentTime = art.currentTime;
+            if (settings.autoSkipIntro && currentTime >= intro_start && currentTime < intro_end) {
+                art.currentTime = intro_end;
+            } else if (settings.autoSkipOutro && currentTime >= outro_start && currentTime < outro_end) {
+                art.currentTime = outro_end;
+            }
+        });
+    }
+
+    fetchData();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
+</body>
+</html>

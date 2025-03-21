@@ -59,6 +59,64 @@
         }
     }
 
+    function setupSkipButtons(art, intro_start, intro_end, outro_start, outro_end) {
+    const skipIntroLayer = art.layers.add({
+        html: 'Skip intro',
+        style: {
+            position: 'absolute',
+            border: '2px solid #fff',
+            bottom: '62px',
+            right: '10px',
+            background: '#00000000',
+            color: '#fff',
+            padding: '5px 10px',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            display: 'none',
+            fontSize: '1.15rem'
+        },
+        click: function () {
+            art.currentTime = intro_end;
+        }
+    });
+
+    const skipOutroLayer = art.layers.add({
+        html: 'Skip outro',
+        style: {
+            position: 'absolute',
+            border: '1px solid #fdd253',
+            bottom: '65px',
+            right: '10px',
+            background: '#00000000',
+            color: '#fdd253',
+            padding: '5px 10px',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            display: 'none',
+            fontSize: '1.15rem'
+        },
+        click: function () {
+            art.currentTime = outro_end;
+        }
+    });
+
+    art.on('video:timeupdate', () => {
+        const currentTime = art.currentTime;
+
+        if (currentTime >= intro_start && currentTime < intro_end) {
+            skipIntroLayer.style.display = 'block';
+            skipOutroLayer.style.display = 'none';
+        } else if (currentTime >= outro_start && currentTime < outro_end) {
+            skipOutroLayer.style.display = 'block';
+            skipIntroLayer.style.display = 'none';
+        } else {
+            skipIntroLayer.style.display = 'none';
+            skipOutroLayer.style.display = 'none';
+        }
+    });
+}
+
+
     function initPlayer(m3u8_url, intro_start, intro_end, outro_start, outro_end, subtitles) {
         const settings = {
             autoSkipIntro: true,
@@ -166,7 +224,8 @@
                 }),
             ],
         });
-
+        
+ setupSkipButtons(art, intro_start, intro_end, outro_start, outro_end);
         // Add custom controls with SVG icons
         art.controls.add({
             name: 'rewind',

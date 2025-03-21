@@ -25,7 +25,7 @@
     const server = new URLSearchParams(window.location.search).get('server') || 'hd-2';
     const isIframe = new URLSearchParams(window.location.search).get('embed') === 'true';
 
-    const fullApiUrl = `${apiUrl}?animeEpisodeId=${id}&server=${server}&category=dub`;
+    const fullApiUrl = `${apiUrl}?animeEpisodeId=${id}&server=${server}&category=sub`;
 
     async function fetchData() {
         try {

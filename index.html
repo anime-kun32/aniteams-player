@@ -19,7 +19,6 @@
 <script src="js/artplayer-plugin-chapter.js"></script>
 
 <script>
-    // Replace PHP server-side values with JS variables
     const proxyUrl = 'https://gogoanime-and-hianime-proxy-nn.vercel.app/m3u8-proxy?url=';  // Replace with your proxy URL
     const apiUrl = 'https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources';  // Replace with your API URL
     const id = new URLSearchParams(window.location.search).get('id') || '123';
@@ -32,14 +31,13 @@
         try {
             const response = await fetch(fullApiUrl);
             if (!response.ok) throw new Error('Failed to fetch');
-            
+
             const data = await response.json();
             if (!data.success) {
                 console.error('Invalid API response');
                 return;
             }
 
-            // Apply the proxy to the m3u8 URL
             const m3u8_url = `${proxyUrl}${encodeURIComponent(data.data.sources[0].url)}`;
             
             const intro_start = data.data.intro.start;
@@ -91,9 +89,16 @@
             volume: 0.5,
             autoplay: true,
             pip: true,
+            autoSize: false,
+            autoMini: false,
+            screenshot: false,
+            setting: true,
             playbackRate: true,
             aspectRatio: true,
             fullscreen: true,
+            autoOrientation: true,
+            fullscreenWeb: false,
+            lock: true,
             miniProgressBar: false,
             backdrop: true,
             playsInline: true,
@@ -133,6 +138,17 @@
                     }
                 }
             ],
+            icons: {
+                loading: '<img src="icons/loading.svg">',
+                state: '<img src="icons/state.svg">',
+                indicator: '<img width="16" height="16" src="icons/indicator.svg">',
+                setting: '<img src="icons/setting.svg">',
+                pip: '<img src="icons/pip.svg">',
+                fullscreenOn: '<img src="icons/fs-on.svg">',
+                fullscreenOff: '<img src="icons/fs-off.svg">',
+                volume: '<img src="icons/volumee.svg">',
+                volumeClose: '<img src="icons/vl-close.svg">',
+            },
             plugins: [
                 artplayerPluginHlsControl({
                     quality: {
@@ -151,18 +167,28 @@
             ],
         });
 
-        // Add rewind button
+        // Add custom controls with SVG icons
         art.controls.add({
             name: 'rewind',
             index: 10,
             position: 'right',
-            html: `<svg viewBox="-5 -10 75 75" xmlns="http://www.w3.org/2000/svg" width="35" height="35" fill="white">
-                <path d="M11.9199 45H7.20508V26.5391L2.60645 28.3154V24.3975L11.4219 20.7949H11.9199V45ZM30.1013 35.0059C30.1013 38.3483 29.4926 40.9049 28.2751 42.6758C27.0687 44.4466 25.3422 45.332 23.0954 45.332C20.8708 45.332 19.1498 44.4743 17.9323 42.7588C16.726 41.0322 16.1006 38.5641 16.0564 35.3545V30.7891C16.0564 27.4577 16.6596 24.9121 17.8659 23.1523C19.0723 21.3815 20.8044 20.4961 23.0622 20.4961C25.32 20.4961 27.0521 21.3704 28.2585 23.1191C29.4649 24.8678 30.0792 27.3636 30.1013 30.6064V35.0059Z"/>
-            </svg>`,
+            html: `<svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" fill="white" viewBox="0 0 24 24"><path d="M11 18H9V15H5.5V12.5L9 10V7H11V18ZM13 7V10L16.5 12.5V15H13V18H11V7H13Z"/></svg>`,
             tooltip: 'Rewind 10 seconds',
             style: { color: 'red' },
             click: () => {
                 art.currentTime -= 10;
+            }
+        });
+
+        art.controls.add({
+            name: 'fast-forward',
+            index: 10,
+            position: 'right',
+            html: `<svg xmlns="http://www.w3.org/2000/svg" width="35" height="35" fill="white" viewBox="0 0 24 24"><path d="M13 18H11V15H7.5V12.5L11 10V7H13V18ZM19 7V10L15.5 12.5V15H19V18H21V7H19Z"/></svg>`,
+            tooltip: 'Fast Forward 10 seconds',
+            style: { color: 'green' },
+            click: () => {
+                art.currentTime += 10;
             }
         });
 
@@ -184,7 +210,6 @@
 
     fetchData();
 </script>
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
+
 </body>
 </html>

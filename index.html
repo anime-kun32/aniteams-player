@@ -19,13 +19,16 @@
 <script src="js/artplayer-plugin-chapter.js"></script>
 
 <script>
-            const proxyUrl = 'https://gogoanime-and-hianime-proxy-nn.vercel.app/m3u8-proxy?url=';  // Replace with your proxy URL
-    const apiUrl = 'https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources';  // Replace with your API URL
-    const id = new URLSearchParams(window.location.search).get('id') || 'demon-slayer-kimetsu-no-yaiba-47?ep=1280';
-    const server = new URLSearchParams(window.location.search).get('server') || 'hd-2';
-    const isIframe = new URLSearchParams(window.location.search).get('embed') === 'true';
+            const proxyUrl = 'https://gogoanime-and-hianime-proxy-nn.vercel.app/m3u8-proxy?url=';  
+const apiUrl = 'https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources';  
+const urlParams = new URLSearchParams(window.location.search);
+const id = urlParams.get('id') || 'demon-slayer-kimetsu-no-yaiba-47?ep=1280';
+const server = urlParams.get('server') || 'hd-2';
+const category = urlParams.get('category') || 'sub'; 
+const isIframe = urlParams.get('embed') === 'true';
 
-    const fullApiUrl = `${apiUrl}?animeEpisodeId=${id}&server=${server}&category=sub`;
+const fullApiUrl = `${apiUrl}?animeEpisodeId=${id}&server=${server}&category=${category}`;
+
 
     async function fetchData() {
         try {

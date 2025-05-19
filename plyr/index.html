@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Plyr Video Player with Skip Intro/Outro</title>
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+<script>eruda.init();</script>
+<title>Plyr Player with AniWatch API</title>
 <link rel="stylesheet" href="https://cdn.plyr.io/4.2.19/plyr.css" />
 <style>
-  /* Fill viewport */
-  body, html {
+  html, body {
     margin: 0; padding: 0; height: 100%; width: 100%; background: #000;
     display: flex; justify-content: center; align-items: center;
   }
@@ -50,8 +51,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.0/dist/hls.min.js"></script>
 <script src="https://cdn.plyr.io/4.2.19/plyr.polyfilled.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
+
 <script>
 (async () => {
   const video = document.getElementById('player');
@@ -59,9 +59,9 @@
   const skipOutroBtn = document.getElementById('skip-outro');
   const skipButtons = document.getElementById('skip-buttons');
 
-  // Parse URL params
+  // Get URL params
   const params = new URLSearchParams(window.location.search);
-  const id = params.get('id');
+  const id = params.get('id');        // corresponds to animeEpisodeId
   const server = params.get('server');
   const category = params.get('category');
 
@@ -70,8 +70,8 @@
     return;
   }
 
-  // Build your API URL - example (change this as needed)
-  const apiUrl = `https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources?animeEpisodeId=${encodeURIComponent(server)}&category=${encodeURIComponent(category)}&id=${encodeURIComponent(id)}`;
+  // Construct API URL with proper encoding
+  const apiUrl = `https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources?animeEpisodeId=${encodeURIComponent(id)}&server=${encodeURIComponent(server)}&category=${encodeURIComponent(category)}`;
 
   try {
     const res = await fetch(apiUrl);
@@ -82,20 +82,19 @@
 
     const data = json.data;
 
-    // Plyr config
     const sources = data.sources || [];
     const tracks = data.tracks || [];
     const intro = data.intro || null;
     const outro = data.outro || null;
 
-    // Setup Plyr source object
+    // Prepare Plyr source object
     const plyrSource = {
       type: 'video',
       sources: [],
       tracks: []
     };
 
-    // Handle HLS sources
+    // Add sources, especially HLS
     for (const s of sources) {
       if (s.type === 'hls') {
         plyrSource.sources.push({
@@ -116,68 +115,55 @@
         plyrSource.tracks.push({
           kind: 'captions',
           label: t.label,
-          srclang: t.label.toLowerCase().slice(0,2), // crude guess of lang code
+          srclang: t.label.toLowerCase().slice(0, 2),
           src: t.file,
-          default: t.default || false,
+          default: !!t.default,
         });
       }
     }
 
-    // Initialize Plyr
+    // Initialize Plyr player
     const player = new Plyr(video, {
       captions: { active: true, update: true, language: plyrSource.tracks.find(t => t.default)?.srclang || 'en' },
       fullscreen: { enabled: true },
       keyboard: { focused: true, global: true },
     });
 
-    // Load the source with captions
+    // Load Plyr source
     player.source = plyrSource;
 
-    // Handle HLS.js for browsers that don't support native HLS
-    function setupHls(url) {
+    // Setup hls.js if needed
+    const hlsSource = sources.find(s => s.type === 'hls');
+    if (hlsSource) {
       if (Hls.isSupported()) {
         const hls = new Hls();
-        hls.loadSource(url);
+        hls.loadSource(hlsSource.url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           player.play();
         });
-        return hls;
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = url;
+        video.src = hlsSource.url;
       } else {
         console.error('HLS not supported in this browser');
       }
-      return null;
     }
 
-    // If the source is HLS, use hls.js
-    const hlsSource = sources.find(s => s.type === 'hls');
-    if (hlsSource) {
-      setupHls(hlsSource.url);
-    }
-
-    // Show skip buttons only if intro/outro exists
+    // Show skip intro/outro buttons if data exists
     if (intro || outro) {
       skipButtons.style.display = 'flex';
     }
 
     skipIntroBtn.addEventListener('click', () => {
-      if (intro) {
-        player.currentTime = intro.end;
-      }
+      if (intro) player.currentTime = intro.end;
     });
 
     skipOutroBtn.addEventListener('click', () => {
-      if (outro) {
-        player.currentTime = outro.end;
-      }
+      if (outro) player.currentTime = outro.end;
     });
 
-    // Optional: auto skip outro or show a prompt - for now just skip on button
-
-  } catch (err) {
-    alert('Error loading video: ' + err.message);
+  } catch (error) {
+    alert('Error loading video: ' + error.message);
   }
 })();
 </script>

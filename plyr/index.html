@@ -2,21 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Plyr with Skip Logic</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plyr Video with Skip Intro/Outro</title>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css"
+  />
   <style>
     html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      height: 100%;
+      margin: 0; padding: 0; height: 100%; background: #000;
       overflow: hidden;
     }
-    video {
+    body, #player {
       width: 100vw;
       height: 100vh;
-      object-fit: cover;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain; /* keep aspect ratio, no zoom */
+      background: black;
     }
     #skip-buttons {
       position: fixed;
@@ -27,6 +36,7 @@
       gap: 10px;
       z-index: 1000;
       pointer-events: none;
+      user-select: none;
     }
     #skip-buttons button {
       pointer-events: auto;
@@ -38,6 +48,7 @@
       border-radius: 5px;
       cursor: pointer;
       backdrop-filter: blur(5px);
+      transition: background-color 0.3s;
     }
     #skip-buttons button:hover {
       background: rgba(255, 255, 255, 0.2);
@@ -46,11 +57,11 @@
 </head>
 <body>
 
-<video id="player" playsinline controls></video>
+<video id="player" playsinline controls crossorigin="anonymous"></video>
 
 <div id="skip-buttons">
-  <button id="skip-intro" style="display: none;">Skip Intro</button>
-  <button id="skip-outro" style="display: none;">Skip Outro</button>
+  <button id="skip-intro" style="display:none;">Skip Intro</button>
+  <button id="skip-outro" style="display:none;">Skip Outro</button>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.0"></script>
@@ -62,6 +73,7 @@
   const skipIntroBtn = document.getElementById('skip-intro');
   const skipOutroBtn = document.getElementById('skip-outro');
 
+  // Get URL params: ?id=xxx&server=xxx&category=xxx
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
   const server = params.get('server');
@@ -81,37 +93,19 @@
     if (!json.success) throw new Error('Failed to fetch sources');
 
     const data = json.data;
-    const sources = data.sources;
+    const sources = data.sources || [];
     const tracks = data.tracks || [];
     const intro = data.intro;
     const outro = data.outro;
 
+    // Find HLS source
     const hlsSource = sources.find(s => s.type === 'hls');
+    if (!hlsSource) throw new Error('No HLS source found');
+
+    // Proxy the m3u8 URL
     const proxyUrl = `https://gogoanime-and-hianime-proxy-ten.vercel.app/m3u8-proxy?url=${encodeURIComponent(hlsSource.url)}`;
 
-    // Create Plyr instance
-    let player;
-
-    if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(proxyUrl);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        player = new Plyr(video, {
-          captions: { active: true, update: true, language: 'en' },
-          fullscreen: { enabled: true },
-        });
-        player.play();
-      });
-    } else {
-      video.src = proxyUrl;
-      player = new Plyr(video, {
-        captions: { active: true, update: true, language: 'en' },
-        fullscreen: { enabled: true },
-      });
-    }
-
-    // Add caption tracks
+    // Add caption tracks dynamically
     tracks.forEach(track => {
       const trackElement = document.createElement('track');
       trackElement.kind = track.kind || 'subtitles';
@@ -122,7 +116,32 @@
       video.appendChild(trackElement);
     });
 
-    // Handle skip logic
+    // Initialize Plyr with HLS support
+    let player;
+
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(proxyUrl);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        player = new Plyr(video, {
+          captions: { active: true, update: true, language: 'en' },
+          fullscreen: { enabled: true },
+          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'fullscreen'],
+        });
+        player.play();
+      });
+    } else {
+      video.src = proxyUrl;
+      player = new Plyr(video, {
+        captions: { active: true, update: true, language: 'en' },
+        fullscreen: { enabled: true },
+        controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'fullscreen'],
+      });
+      video.play();
+    }
+
+    // Show/hide skip buttons based on current time
     video.addEventListener('timeupdate', () => {
       const time = video.currentTime;
 
@@ -140,16 +159,18 @@
     });
 
     skipIntroBtn.addEventListener('click', () => {
-      if (intro) video.currentTime = intro.end;
+      if (intro) video.currentTime = intro.end + 0.1;
+      skipIntroBtn.style.display = 'none';
     });
 
     skipOutroBtn.addEventListener('click', () => {
-      if (outro) video.currentTime = outro.end;
+      if (outro) video.currentTime = outro.end + 0.1;
+      skipOutroBtn.style.display = 'none';
     });
 
-  } catch (err) {
-    console.error(err);
-    alert('Failed to load video');
+  } catch (error) {
+    console.error(error);
+    alert('Failed to load video or metadata.');
   }
 })();
 </script>

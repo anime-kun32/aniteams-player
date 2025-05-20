@@ -1,50 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
-<title>Plyr Player with AniWatch API</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.8/plyr.css" integrity="sha512-yexU9hwne3MaLL2PG+YJDhaySS9NWcj6z7MvUDSoMhwNghPgXgcvYgVhfj4FMYpPh1Of7bt8/RK5A0rQ9fPMOw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-<style>
-  html, body {
-    margin: 0; padding: 0; height: 100%; width: 100%; background: #000;
-    display: flex; justify-content: center; align-items: center;
-  }
-  #player {
-    width: 100vw;
-    height: 100vh;
-  }
-  #skip-buttons {
-    position: fixed;
-    bottom: 80px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 10px;
-    z-index: 10;
-  }
-  #skip-buttons button {
-    background: rgba(255,255,255,0.2);
-    border: none;
-    color: #fff;
-    padding: 10px 15px;
-    font-size: 16px;
-    cursor: pointer;
-    border-radius: 5px;
-    backdrop-filter: blur(5px);
-  }
-  #skip-buttons button:hover {
-    background: rgba(255,255,255,0.4);
-  }
-</style>
+  <script>eruda.init();</script>
+  <title>Plyr Player with AniWatch API</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/plyr/3.7.8/plyr.css" integrity="sha512-yexU9hwne3MaLL2PG+YJDhaySS9NWcj6z7MvUDSoMhwNghPgXgcvYgVhfj4FMYpPh1Of7bt8/RK5A0rQ9fPMOw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    .plyr__video-wrapper,
+    video#player {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover;
+    }
+    #skip-buttons {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    #skip-buttons button {
+      pointer-events: auto;
+      background: rgba(0, 0, 0, 0.6);
+      border: none;
+      color: #fff;
+      padding: 10px 15px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+      backdrop-filter: blur(4px);
+      transition: background 0.3s;
+    }
+    #skip-buttons button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  </style>
 </head>
 <body>
 
 <video id="player" playsinline controls></video>
 
-<div id="skip-buttons" style="display:none;">
+<div id="skip-buttons" style="display: none;">
   <button id="skip-intro">Skip Intro</button>
   <button id="skip-outro">Skip Outro</button>
 </div>
@@ -59,9 +68,8 @@
   const skipOutroBtn = document.getElementById('skip-outro');
   const skipButtons = document.getElementById('skip-buttons');
 
-  // Get URL params
   const params = new URLSearchParams(window.location.search);
-  const id = params.get('id');        // corresponds to animeEpisodeId
+  const id = params.get('id');
   const server = params.get('server');
   const category = params.get('category');
 
@@ -70,7 +78,6 @@
     return;
   }
 
-  // Construct API URL with proper encoding
   const apiUrl = `https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources?animeEpisodeId=${encodeURIComponent(id)}&server=${encodeURIComponent(server)}&category=${encodeURIComponent(category)}`;
 
   try {
@@ -81,89 +88,69 @@
     if (!json.success || !json.data) throw new Error('Invalid API response');
 
     const data = json.data;
-
     const sources = data.sources || [];
     const tracks = data.tracks || [];
     const intro = data.intro || null;
     const outro = data.outro || null;
 
-    // Prepare Plyr source object
-    const plyrSource = {
-      type: 'video',
-      sources: [],
-      tracks: []
-    };
+    let player;
 
-    // Add sources, especially HLS
-    for (const s of sources) {
-      if (s.type === 'hls') {
-        plyrSource.sources.push({
-          src: s.url,
-          type: 'application/x-mpegURL',
-        });
-      } else {
-        plyrSource.sources.push({
-          src: s.url,
-          type: s.type || 'video/mp4',
-        });
-      }
-    }
+    const hlsSource = sources.find(s => s.type === 'hls');
 
-    // Add captions tracks
-    for (const t of tracks) {
-      if (t.kind === 'captions' || t.kind === 'subtitles') {
-        plyrSource.tracks.push({
+    if (hlsSource && Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(hlsSource.url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        player = new Plyr(video, {
+          captions: { active: true, update: true, language: 'en' },
+          fullscreen: { enabled: true },
+          keyboard: { focused: true, global: true },
+        });
+        player.play();
+        console.log('Plyr initialized via HLS');
+      });
+    } else {
+      const plyrSource = {
+        type: 'video',
+        sources: sources.map(s => ({
+          src: s.url,
+          type: s.type === 'hls' ? 'application/x-mpegURL' : (s.type || 'video/mp4')
+        })),
+        tracks: tracks.map(t => ({
           kind: 'captions',
           label: t.label,
           srclang: t.label.toLowerCase().slice(0, 2),
           src: t.file,
-          default: !!t.default,
-        });
-      }
+          default: !!t.default
+        }))
+      };
+
+      player = new Plyr(video, {
+        captions: { active: true, update: true, language: plyrSource.tracks.find(t => t.default)?.srclang || 'en' },
+        fullscreen: { enabled: true },
+        keyboard: { focused: true, global: true },
+      });
+
+      player.source = plyrSource;
+      video.addEventListener('loadedmetadata', () => player.play());
+      console.log('Plyr initialized with non-HLS');
     }
 
-    // Initialize Plyr player
-    const player = new Plyr(video, {
-      captions: { active: true, update: true, language: plyrSource.tracks.find(t => t.default)?.srclang || 'en' },
-      fullscreen: { enabled: true },
-      keyboard: { focused: true, global: true },
-    });
-
-    // Load Plyr source
-    player.source = plyrSource;
-
-    // Setup hls.js if needed
-    const hlsSource = sources.find(s => s.type === 'hls');
-    if (hlsSource) {
-      if (Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(hlsSource.url);
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          player.play();
-        });
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = hlsSource.url;
-      } else {
-        console.error('HLS not supported in this browser');
-      }
-    }
-
-    // Show skip intro/outro buttons if data exists
-    if (intro || outro) {
-      skipButtons.style.display = 'flex';
-    }
+    // Show skip buttons if available
+    if (intro || outro) skipButtons.style.display = 'flex';
 
     skipIntroBtn.addEventListener('click', () => {
-      if (intro) player.currentTime = intro.end;
+      if (intro) video.currentTime = intro.end;
     });
 
     skipOutroBtn.addEventListener('click', () => {
-      if (outro) player.currentTime = outro.end;
+      if (outro) video.currentTime = outro.end;
     });
 
   } catch (error) {
     alert('Error loading video: ' + error.message);
+    console.error(error);
   }
 })();
 </script>

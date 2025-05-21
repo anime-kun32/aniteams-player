@@ -73,7 +73,7 @@
         return;
       }
 
-      const apiUrl = `https://your-api-endpoint.com/api/source?id=${id}&category=${category}&server=${server}`;
+      const apiUrl = `https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources?animeEpisodeId=${id}&category=${category}&server=${server}`;
 
       try {
         const res = await fetch(apiUrl);

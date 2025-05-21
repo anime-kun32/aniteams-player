@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>AKS Video Player + HLS.js Integration</title>
+  <title>Full-Viewport AKS Video Player</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -14,9 +14,10 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: #000;
       height: 100%;
       width: 100%;
+      background: #000;
+      overflow: hidden;
     }
 
     #video {
@@ -24,62 +25,70 @@
       height: 100vh;
     }
 
+    video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover;
+    }
+
     .skip-button {
       position: absolute;
-      padding: 6px 12px;
+      padding: 8px 14px;
       background: rgba(0, 0, 0, 0.7);
       color: white;
+      font-weight: bold;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       cursor: pointer;
-      z-index: 9999;
+      z-index: 1000;
+      font-size: 14px;
     }
 
     #skipIntro {
-      bottom: 60px;
+      bottom: 20px;
       right: 20px;
     }
 
     #skipOutro {
-      bottom: 60px;
+      bottom: 20px;
       left: 20px;
     }
   </style>
 </head>
 <body>
 
-  <div id="video" class="aksVideoPlayer-container"></div>
+  <div id="video"></div>
   <button id="skipIntro" class="skip-button" style="display: none;">Skip Intro</button>
   <button id="skipOutro" class="skip-button" style="display: none;">Skip Outro</button>
 
   <script>
     $(async function () {
-      // Get query params
-      const urlParams = new URLSearchParams(window.location.search);
-      const id = urlParams.get('id');
-      const category = urlParams.get('category');
-      const server = urlParams.get('server');
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("id");
+      const category = params.get("category");
+      const server = params.get("server");
 
       if (!id || !category || !server) {
-        alert("Missing parameters in URL.");
+        alert("Missing 'id', 'category', or 'server' parameters in the URL.");
         return;
       }
 
-      const apiUrl = `https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources?animeEpisodeId=${id}&category=${category}&server=${server}`;
-      
-      try {
-        const response = await fetch(apiUrl);
-        const json = await response.json();
+      const apiUrl = `https://your-api-endpoint.com/api/source?id=${id}&category=${category}&server=${server}`;
 
-        if (!json.success) throw new Error("API error");
+      try {
+        const res = await fetch(apiUrl);
+        const json = await res.json();
+
+        if (!json.success) throw new Error("Failed to load video data");
 
         const { sources, tracks, intro, outro } = json.data;
-        const hlsSource = sources.find(src => src.type === "hls")?.url;
+        const originalHls = sources.find(s => s.type === "hls")?.url;
+        const proxiedHls = `https://gogoanime-and-hianime-proxy-ten.vercel.app/m3u8-proxy?url=${encodeURIComponent(originalHls)}`;
 
         const captionTracks = tracks?.filter(t => t.kind === "captions") || [];
         const thumbnailTrack = tracks?.find(t => t.kind === "thumbnails");
 
-        // Initial fallback player to create structure
+        // Initialize player with fallback source
         $("#video").aksVideoPlayer({
           file: [{ file: "", label: "Fallback" }],
           width: "100%",
@@ -91,36 +100,32 @@
 
         const videoElement = $("#video video").get(0);
 
-        // Load HLS video
-        if (Hls.isSupported() && hlsSource) {
+        // Initialize HLS
+        if (Hls.isSupported()) {
           const hls = new Hls();
-          hls.loadSource(hlsSource);
+          hls.loadSource(proxiedHls);
           hls.attachMedia(videoElement);
-          hls.on(Hls.Events.MANIFEST_PARSED, function () {
-            videoElement.play();
-          });
+          hls.on(Hls.Events.MANIFEST_PARSED, () => videoElement.play());
         } else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
-          videoElement.src = hlsSource;
-          videoElement.addEventListener("loadedmetadata", function () {
-            videoElement.play();
-          });
+          videoElement.src = proxiedHls;
+          videoElement.addEventListener("loadedmetadata", () => videoElement.play());
         } else {
-          alert("HLS not supported in this browser");
+          alert("HLS not supported in this browser.");
         }
 
-        // Handle Skip Intro/Outro
+        // Handle Skip Buttons
         const skipIntroBtn = document.getElementById("skipIntro");
         const skipOutroBtn = document.getElementById("skipOutro");
 
         videoElement.addEventListener("timeupdate", () => {
-          const time = videoElement.currentTime;
+          const currentTime = videoElement.currentTime;
 
           if (intro?.start && intro?.end) {
-            skipIntroBtn.style.display = (time >= intro.start && time <= intro.end) ? "block" : "none";
+            skipIntroBtn.style.display = (currentTime >= intro.start && currentTime <= intro.end) ? "block" : "none";
           }
 
           if (outro?.start && outro?.end) {
-            skipOutroBtn.style.display = (time >= outro.start && time <= outro.end) ? "block" : "none";
+            skipOutroBtn.style.display = (currentTime >= outro.start && currentTime <= outro.end) ? "block" : "none";
           }
         });
 
@@ -132,9 +137,9 @@
           if (outro?.end) videoElement.currentTime = outro.end + 0.5;
         });
 
-      } catch (error) {
-        console.error("Error loading video:", error);
-        alert("Failed to load video.");
+      } catch (err) {
+        console.error(err);
+        alert("Error loading video.");
       }
     });
   </script>

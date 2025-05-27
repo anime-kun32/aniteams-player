@@ -37,7 +37,7 @@ const fullApiUrl = `${apiUrl}?animeEpisodeId=${id}&server=${server}&category=${c
             if (!response.ok) throw new Error('Failed to fetch');
 
             const data = await response.json();
-            if (!data.success) {
+            if (!data.status) {
                 console.error('Invalid API response');
                 return;
             }

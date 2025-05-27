@@ -13,7 +13,7 @@
     fetch(apiUrl)
       .then(response => response.json())
       .then(data => {
-        if (!data.success) throw new Error('Failed to fetch video data');
+        if (!data.status) throw new Error('Failed to fetch video data');
 
         var { sources, tracks } = data.data;
         var videoSource = sources.find(s => s.type === 'hls');

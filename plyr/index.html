@@ -84,7 +84,7 @@
     return;
   }
 
-  const apiUrl = `https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources?animeEpisodeId=${id}&server=${server}&category=${category}`;
+  const apiUrl = `https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources?animeEpisodeId=${id}&server=${server}&category=${category}`; // https://github.com/ghoshRitesh12/aniwatch-api
 
   try {
     const res = await fetch(apiUrl);
@@ -103,7 +103,7 @@
     if (!hlsSource) throw new Error('No HLS source found');
 
     // Proxy the m3u8 URL
-    const proxyUrl = `https://gogoanime-and-hianime-proxy-ten.vercel.app/m3u8-proxy?url=${encodeURIComponent(hlsSource.url)}`;
+    const proxyUrl = `https://gogoanime-and-hianime-proxy-ten.vercel.app/m3u8-proxy?url=${encodeURIComponent(hlsSource.url)}`; // https://github.com/JulzOhern/Gogoanime-and-Hianime-proxy
 
     // Add caption tracks dynamically
     tracks.forEach(track => {

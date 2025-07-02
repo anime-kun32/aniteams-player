@@ -105,18 +105,24 @@
     // Proxy the m3u8 URL
     const proxyUrl = `https://gogoanime-and-hianime-proxy-mu.vercel.app/m3u8-proxy?url=${encodeURIComponent(hlsSource.url)}`; // https://github.com/JulzOhern/Gogoanime-and-Hianime-proxy
 
-    // Add caption tracks dynamically
     tracks.forEach(track => {
-      if (!track.label) return; // skip if no label
-      const trackElement = document.createElement('track');
-      trackElement.kind = track.kind || 'subtitles';
-      trackElement.label = track.label;
-      // fallback srclang = first two letters lowercase or 'en'
-      trackElement.srclang = (track.label && track.label.length >= 2) ? track.label.toLowerCase().slice(0, 2) : 'en';
-      trackElement.src = track.file;
-      if (track.default) trackElement.default = true;
-      video.appendChild(trackElement);
-    });
+  // Skip if it's a thumbnail track or missing lang
+  if (!track.lang || track.lang.toLowerCase() === 'thumbnails') return;
+
+  const trackElement = document.createElement('track');
+  trackElement.kind = 'subtitles'; // default to 'subtitles'
+  trackElement.label = track.lang;
+  trackElement.srclang = (track.lang.length >= 2) ? track.lang.toLowerCase().slice(0, 2) : 'en';
+  trackElement.src = track.url;
+
+  // Set English track as default
+  if (track.lang.toLowerCase() === 'english') {
+    trackElement.default = true;
+  }
+
+  video.appendChild(trackElement);
+});
+
 
     // Initialize Plyr with HLS support
     let player;

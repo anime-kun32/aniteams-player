@@ -55,12 +55,13 @@ const fullApiUrl = `${apiUrl}?animeEpisodeId=${id}&server=${server}&category=${c
             const outro_end = data.data.outro.end;
 
             const subtitles = data.data.tracks
-                .filter(track => track.kind === 'captions')
-                .map(track => ({
-                    label: track.lang,
-                    file: track.url,
-                    default: /english|eng/i.test(track.lang)
-                }));
+    .filter(track => track.lang && track.lang.toLowerCase() !== 'thumbnails')
+    .map(track => ({
+        label: track.lang,
+        file: track.url,
+        default: /english|eng/i.test(track.lang)
+    }));
+
 
             initPlayer(m3u8_url, intro_start, intro_end, outro_start, outro_end, subtitles);
         } catch (error) {

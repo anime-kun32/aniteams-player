@@ -4,10 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Plyr Video with Skip Intro/Outro</title>
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css"
-  />
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.css" />
+
+
+<script src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.min.js"></script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.2.0/dist/hls.min.js"></script>
+
   <style>
 @import url('https://fonts.googleapis.com/css2?family=Rubik&display=swap');
 
@@ -67,8 +72,6 @@
   <button id="skip-outro" style="display:none;">Skip Outro</button>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.4.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/plyr@3.7.8/dist/plyr.min.js"></script>
 
 <script>
 (async () => {
@@ -76,7 +79,6 @@
   const skipIntroBtn = document.getElementById('skip-intro');
   const skipOutroBtn = document.getElementById('skip-outro');
 
-  // Get URL params: ?id=xxx&server=xxx&category=xxx
   const params = new URLSearchParams(window.location.search);
   const id = params.get('id');
   const server = params.get('server');
@@ -87,7 +89,7 @@
     return;
   }
 
-  const apiUrl = `https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources?animeEpisodeId=${id}&server=${server}&category=${category}`; // https://github.com/ghoshRitesh12/aniwatch-api
+  const apiUrl = `https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources?animeEpisodeId=${id}&server=${server}&category=${category}`;
 
   try {
     const res = await fetch(apiUrl);
@@ -101,72 +103,85 @@
     const intro = data.intro;
     const outro = data.outro;
 
-    // Find HLS source
     const hlsSource = sources.find(s => s.type === 'hls');
     if (!hlsSource) throw new Error('No HLS source found');
 
-    // Proxy the m3u8 URL
-    const proxyUrl = `https://gogoanime-and-hianime-proxy-mu.vercel.app/m3u8-proxy?url=${encodeURIComponent(hlsSource.url)}`; // https://github.com/JulzOhern/Gogoanime-and-Hianime-proxy
+    const proxyUrl = `https://gogoanime-and-hianime-proxy-mu.vercel.app/m3u8-proxy?url=${encodeURIComponent(hlsSource.url)}`;
 
     tracks.forEach(track => {
-  // Skip if it's a thumbnail track or missing lang
-  if (!track.lang || track.lang.toLowerCase() === 'thumbnails') return;
+      if (!track.lang || track.lang.toLowerCase() === 'thumbnails') return;
+      const trackElement = document.createElement('track');
+      trackElement.kind = 'subtitles';
+      trackElement.label = track.lang;
+      trackElement.srclang = track.lang.slice(0, 2).toLowerCase();
+      trackElement.src = track.url;
+      if (track.lang.toLowerCase() === 'english') {
+        trackElement.default = true;
+      }
+      video.appendChild(trackElement);
+    });
 
-  const trackElement = document.createElement('track');
-  trackElement.kind = 'subtitles'; // default to 'subtitles'
-  trackElement.label = track.lang;
-  trackElement.srclang = (track.lang.length >= 2) ? track.lang.toLowerCase().slice(0, 2) : 'en';
-  trackElement.src = track.url;
-
-  // Set English track as default
-  if (track.lang.toLowerCase() === 'english') {
-    trackElement.default = true;
-  }
-
-  video.appendChild(trackElement);
-});
-
-
-    // Initialize Plyr with HLS support
     let player;
 
     if (Hls.isSupported()) {
       const hls = new Hls();
       hls.loadSource(proxyUrl);
       hls.attachMedia(video);
+
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        const qualities = hls.levels.map(l => l.height).filter(Boolean);
+        qualities.unshift(0); // 0 = Auto
+
         player = new Plyr(video, {
           captions: { active: true, update: true, language: 'en' },
-          fullscreen: { enabled: true },
-          controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'fullscreen'],
+          seekTime: 10,
+          controls: [
+            'play-large', 'rewind', 'play', 'fast-forward',
+            'progress', 'current-time', 'mute', 'volume',
+            'captions', 'settings', 'fullscreen'
+          ],
+          quality: {
+            default: 0,
+            options: qualities,
+            forced: true,
+            onChange: quality => {
+              hls.currentLevel = quality === 0 ? -1 : hls.levels.findIndex(q => q.height === quality);
+            }
+          },
+          i18n: {
+            qualityLabel: { 0: 'Auto' }
+          }
         });
+
+        hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
+          const btn = document.querySelector("[data-plyr='quality'][value='0'] span");
+          if (btn && hls.levels[data.level]) {
+            btn.innerText = hls.autoLevelEnabled
+              ? `Auto (${hls.levels[data.level].height}p)`
+              : 'Auto';
+          }
+        });
+
         player.play();
       });
     } else {
       video.src = proxyUrl;
       player = new Plyr(video, {
         captions: { active: true, update: true, language: 'en' },
-        fullscreen: { enabled: true },
-        controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'fullscreen'],
+        seekTime: 10,
+        controls: [
+          'play-large', 'rewind', 'play', 'fast-forward',
+          'progress', 'current-time', 'mute', 'volume',
+          'captions', 'settings', 'fullscreen'
+        ]
       });
       video.play();
     }
 
-    // Show/hide skip buttons based on current time
     video.addEventListener('timeupdate', () => {
       const time = video.currentTime;
-
-      if (intro && time >= intro.start && time <= intro.end) {
-        skipIntroBtn.style.display = 'inline-block';
-      } else {
-        skipIntroBtn.style.display = 'none';
-      }
-
-      if (outro && time >= outro.start && time <= outro.end) {
-        skipOutroBtn.style.display = 'inline-block';
-      } else {
-        skipOutroBtn.style.display = 'none';
-      }
+      skipIntroBtn.style.display = (intro && time >= intro.start && time <= intro.end) ? 'inline-block' : 'none';
+      skipOutroBtn.style.display = (outro && time >= outro.start && time <= outro.end) ? 'inline-block' : 'none';
     });
 
     skipIntroBtn.addEventListener('click', () => {
@@ -179,12 +194,13 @@
       skipOutroBtn.style.display = 'none';
     });
 
-  } catch (error) {
-    console.error(error);
+  } catch (err) {
+    console.error(err);
     alert('Failed to load video or metadata.');
   }
 })();
 </script>
+
 
   
 </body>

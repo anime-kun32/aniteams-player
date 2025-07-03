@@ -36,7 +36,7 @@
       background: black;
     }
     #skip-buttons {
-      position: fixed;
+      position: absolute;
       bottom: 80px;
       left: 50%;
       transform: translateX(-50%);
@@ -65,11 +65,13 @@
 </head>
 <body>
 
-<video id="player" playsinline controls crossorigin="anonymous"></video>
+<div id="video-wrapper" style="position: relative;">
+  <video id="player" controls crossorigin playsinline></video>
 
-<div id="skip-buttons">
-  <button id="skip-intro" style="display:none;">Skip Intro</button>
-  <button id="skip-outro" style="display:none;">Skip Outro</button>
+  <div id="skip-buttons">
+    <button id="skip-intro" style="display:none;"> Skip Intro</button>
+    <button id="skip-outro" style="display:none;"> Skip Outro</button>
+  </div>
 </div>
 
 

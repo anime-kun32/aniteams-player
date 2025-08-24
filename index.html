@@ -54,7 +54,7 @@ const fullApiUrl = `${apiUrl}?animeEpisodeId=${id}&server=${server}&category=${c
             const outro_start = data.data.outro.start;
             const outro_end = data.data.outro.end;
 
-           const proxyUrl = url => `${proxyUrl}${encodeURIComponent(url)}`;
+         
 
 const subtitles = data.data.tracks
   .filter(track => track.lang && track.lang.toLowerCase() !== 'thumbnails')

@@ -24,7 +24,7 @@
 
 <script>
   
-const proxyUrl = 'https://gogoanime-and-hianime-proxy-mu.vercel.app/m3u8-proxy?url=';  // https://github.com/JulzOhern/Gogoanime-and-Hianime-proxy
+const proxyUrl = 'https://m8-u3-proxy.vercel.app/m3u8-proxy?url=';  // https://github.com/JulzOhern/Gogoanime-and-Hianime-proxy
 const apiUrl = 'https://aniwatch-api-net.vercel.app/api/v2/hianime/episode/sources';  // https://github.com/ghoshRitesh12/aniwatch-api
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -54,13 +54,16 @@ const fullApiUrl = `${apiUrl}?animeEpisodeId=${id}&server=${server}&category=${c
             const outro_start = data.data.outro.start;
             const outro_end = data.data.outro.end;
 
-            const subtitles = data.data.tracks
-    .filter(track => track.lang && track.lang.toLowerCase() !== 'thumbnails')
-    .map(track => ({
-        label: track.lang,
-        file: track.url,
-        default: /english|eng/i.test(track.lang)
-    }));
+           const proxyUrl = url => `${proxyUrl}${encodeURIComponent(url)}`;
+
+const subtitles = data.data.tracks
+  .filter(track => track.lang && track.lang.toLowerCase() !== 'thumbnails')
+  .map(track => ({
+    label: track.lang,
+    file: proxyUrl(track.url), 
+    default: /english|eng/i.test(track.lang),
+  }));
+
 
 
             initPlayer(m3u8_url, intro_start, intro_end, outro_start, outro_end, subtitles);
